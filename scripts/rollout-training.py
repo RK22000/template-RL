@@ -52,8 +52,9 @@ class RolloutAgent(Agent):
 
 agent = RolloutAgent()
 print("Starting training")
-rounds = 10
-episodes_per_round = 100
+rounds = 50
+episodes_per_round = 50
+gamma=0.9
 try:
     for i in trange(rounds): # 100 updates
         data = []
@@ -62,7 +63,11 @@ try:
             observation, _ = env.reset()
             obs, acts, rwds = agent.play_episode(env, observation)
             writer.add_scalar('Reward/episode_total', sum(rwds), i*episodes_per_round+j)
-            cum_rwds = np.cumsum(rwds)
+            running_total = 0
+            cum_rwds = [rwds.pop()]
+            while rwds:
+                cum_rwds.append(gamma*cum_rwds[-1] + rwds.pop())  
+            cum_rwds = reversed(cum_rwds)
             data.extend(zip(obs, acts, cum_rwds))
         model.train()
         dl = DataLoader(RolloutData(data), 32, True, num_workers=11)
