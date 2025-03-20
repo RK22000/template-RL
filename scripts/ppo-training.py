@@ -24,7 +24,16 @@ policy_net = nn.Sequential(
     nn.Linear(100, 100),
     nn.ReLU(),
     nn.Linear(100, 4),
-    nn.Softmax()
+    nn.Softmax(-1)
+)
+
+old_policy_net = nn.Sequential(
+    nn.Linear(8, 100),
+    nn.ReLU(),
+    nn.Linear(100, 100),
+    nn.ReLU(),
+    nn.Linear(100, 4),
+    nn.Softmax(-1)
 )
 
 optim = torch.optim.Adam(chain(value_net.parameters(), policy_net.parameters()), 3e-4)
@@ -62,6 +71,7 @@ def clip_loss(ratio, advantages, epsilon):
     return loss
 
 writer = SummaryWriter()
+fit_step=0
 def fit_batch(batch, old_policy, epsilon):
     optim.zero_grad()
     o, a, r = batch
@@ -75,12 +85,11 @@ def fit_batch(batch, old_policy, epsilon):
     policy_loss = -torch.mean(clip)
     
     value_loss = F.mse_loss(
-        value_net(o),
+        value_net(o).squeeze(),
         r
     )
 
-    loss = policy_loss + 0.5*value_loss - 0.01*entropy
-    
+    loss = torch.mean(policy_loss + 0.5*value_loss - 0.01*entropy)
     loss.backward()
     optim.step()
     global fit_step
@@ -93,8 +102,9 @@ env = gym.make("LunarLander-v3")
 class PPOAgent(Agent):
     def act(self, observation):
         t = torch.from_numpy(observation)
-        action_probs = Categorical(policy_net(t))
-        return action_probs.sample((1,))
+        p = policy_net(t)
+        action_probs = Categorical(p)
+        return action_probs.sample().item()
 
 agent = PPOAgent()
 print("Starting training")
@@ -119,10 +129,10 @@ try:
             data.extend(zip(obs, acts, cum_rwds))
         policy_net.train()
         value_net.train()
-        old_policy = policy_net.deep_copy()
-        old_policy.eval()
+        old_policy_net.load_state_dict(policy_net.state_dict(),)
+        old_policy_net.eval()
         dl = DataLoader(RolloutData(data), 32, True, num_workers=11)
-        losses = [fit_batch(batch, old_policy, epsilon).detach() for batch in dl]
+        losses = [fit_batch(batch, old_policy_net, epsilon).detach() for batch in dl]
         writer.add_scalar('Loss/averaged', np.mean(losses), fit_step)
 
 
