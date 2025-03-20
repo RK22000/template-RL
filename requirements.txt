@@ -1,0 +1,7 @@
+gymnasium[box2d]
+notebook
+numpy
+torch
+lightning
+tqdm
+tensorboard
