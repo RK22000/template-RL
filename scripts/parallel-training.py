@@ -98,7 +98,7 @@ def fit_batch(batch, old_policy, epsilon):
     fit_step+=1
     return loss
 
-env = gym.make("LunarLander-v3")
+env_factory = lambda: gym.make("LunarLander-v3")
 
 class PPOAgent(Agent):
     def act(self, observation):
@@ -118,9 +118,9 @@ try:
         data = []
         policy_net.eval()
         value_net.eval()
-        for j in range(episodes_per_round): # 100 episodes for each update
-            observation, _ = env.reset()
-            obs, acts, rwds = agent.play_episode(env, observation)
+        rollouts = agent.play_n_episodes_parallel_processed(env_factory, episodes_per_round)
+        for j, rollout in enumerate(rollouts):
+            obs, acts, rwds = rollout
             writer.add_scalar('Reward/episode_total', sum(rwds), i*episodes_per_round+j)
             running_total = 0
             cum_rwds = [rwds.pop()]
@@ -128,6 +128,7 @@ try:
                 cum_rwds.append(gamma*cum_rwds[-1] + rwds.pop())  
             cum_rwds = reversed(cum_rwds)
             data.extend(zip(obs, acts, cum_rwds))
+
         policy_net.train()
         value_net.train()
         old_policy_net.load_state_dict(policy_net.state_dict(),)
@@ -140,7 +141,6 @@ try:
 except KeyboardInterrupt:
     pass
 
-env.close()
 
 env = gym.make("LunarLander-v3", render_mode="human")
 obs, _ = env.reset()
