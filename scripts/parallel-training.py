@@ -9,6 +9,8 @@ from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import trange
 import numpy as np
 from itertools import chain
+import mlflow
+
 
 value_net = nn.Sequential(
     nn.Linear(8, 100),
@@ -71,7 +73,7 @@ def clip_loss(ratio, advantages, epsilon):
     return loss
 
 writer = SummaryWriter()
-fit_step=0
+batch_num=0
 def fit_batch(batch, old_policy, epsilon):
     optim.zero_grad()
     o, a, r = batch
@@ -93,9 +95,10 @@ def fit_batch(batch, old_policy, epsilon):
     loss = torch.mean(policy_loss + 0.5*value_loss - 0.01*entropy)
     loss.backward()
     optim.step()
-    global fit_step
-    writer.add_scalar('Loss/fit_step', loss, fit_step)
-    fit_step+=1
+    global batch_num
+    writer.add_scalar('Loss/batch loss', loss, batch_num)
+    mlflow.log_metric("batch loss", loss, batch_num)
+    batch_num+=1
     return loss
 
 env_factory = lambda: gym.make("LunarLander-v3")
@@ -113,6 +116,13 @@ rounds = 50
 episodes_per_round = 50
 gamma=0.99
 epsilon=0.2
+mlflow.log_params({
+    "Agent": 'PPOAgent-parallel-process',
+    "rounds": rounds,
+    "episodes_per_round": episodes_per_round,
+    "gamma": gamma,
+    "epsilon": epsilon
+})
 try:
     for i in trange(rounds): # 100 updates
         data = []
@@ -121,7 +131,8 @@ try:
         rollouts = agent.play_n_episodes_parallel_processed(env_factory, episodes_per_round)
         for j, rollout in enumerate(rollouts):
             obs, acts, rwds = rollout
-            writer.add_scalar('Reward/episode_total', sum(rwds), i*episodes_per_round+j)
+            writer.add_scalar('Reward/epsiode reward', sum(rwds), i*episodes_per_round+j)
+            mlflow.log_metric("episode reward", sum(rwds), i*episodes_per_round+j)
             running_total = 0
             cum_rwds = [rwds.pop()]
             while rwds:
@@ -135,7 +146,9 @@ try:
         old_policy_net.eval()
         dl = DataLoader(RolloutData(data), 32, True, num_workers=11)
         losses = [fit_batch(batch, old_policy_net, epsilon).detach() for batch in dl]
-        writer.add_scalar('Loss/averaged', np.mean(losses), fit_step)
+        writer.add_scalar('Loss/epoch loss', np.mean(losses), batch_num)
+        mlflow.log_metric('epoch loss', np.mean(losses), batch_num)
+
 
 
 except KeyboardInterrupt:
@@ -146,5 +159,6 @@ env = gym.make("LunarLander-v3", render_mode="human")
 obs, _ = env.reset()
 _, _, rewards = agent.play_episode(env, obs)
 env.close()
-for i, r in enumerate(rewards):
-    writer.add_scalar("Reward/demo-episode", r, i)
+for i, s in enumerate(np.cumsum(rewards)):
+    writer.add_scalar("Reward/demo-episode-socre", s, i)
+    mlflow.log_metric("demo episode score", s, i)
