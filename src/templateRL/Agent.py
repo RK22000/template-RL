@@ -15,12 +15,23 @@ from concurrent.futures import (
 """ 
 Some asumptions
 Agents will always run for an episode while training
-
+The base agent will be generic and as much as possible not coupled with
+libraries like pytorch, tensorflow, sklearn or others
 """
 class Agent(ABC):
     @abstractmethod
     def act(self, observation) -> Any:
         NotImplementedError()
+    def __call__(self, *args, **kwds):
+        return super().act(*args, **kwds)
+        
+    def __init__(self):
+        self._decorators = []
+        """
+        Names of the decorators applied on the agent.
+        This is likely for book keeping on the library's part.
+        Users don't need to worry about this
+        """
     
     # optional decorator to return cumilative rewards instead of regular rewards
     def play_episode(self, env: gym.Env, initial_observation: Any|None = None):
@@ -53,7 +64,7 @@ class Agent(ABC):
     
     def play_n_episodes_sequential(
         self, 
-        env: gym.Env, 
+        env_factory: Callable[[], gym.Env], 
         n:int, 
         show_prog:bool=False):
         """
@@ -64,6 +75,7 @@ class Agent(ABC):
             env (gym.Env): _description_
             n (int): _description_
         """
+        env = env_factory()
         rollouts = []
         r = trange if show_prog else range
         for _ in r(n):
@@ -73,6 +85,17 @@ class Agent(ABC):
         return rollouts
     
     def play_n_episodes_parallel_threaded(self, env_factory: Callable[[],gym.Env], n:int, n_workers:int=None, show_prog:bool=False):
+        """multi threaded roll out collection
+
+        Args:
+            env_factory (Callable[[],gym.Env]): _description_
+            n (int): _description_
+            n_workers (int, optional): _description_. Defaults to None.
+            show_prog (bool, optional): _description_. Defaults to False.
+
+        Returns:
+            _type_: _description_
+        """
         rollouts = []
         bar = iter(trange(n))
         def func():
@@ -92,6 +115,17 @@ class Agent(ABC):
         return rollouts
 
     def play_n_episodes_parallel_processed(self, env_factory: Callable[[],gym.Env], n:int, n_workers:int=None, show_prog:bool=False):
+        """Play multiple episodes in parallel processes
+
+        Args:
+            env_factory (Callable[[],gym.Env]): _description_
+            n (int): _description_
+            n_workers (int, optional): _description_. Defaults to None.
+            show_prog (bool, optional): _description_. Defaults to False.
+
+        Returns:
+            _type_: _description_
+        """
         rollouts = []
         if show_prog:
             bar = iter(trange(n))
