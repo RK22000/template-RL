@@ -132,7 +132,7 @@ try:
         for j, rollout in enumerate(rollouts):
             obs, acts, rwds = rollout
             writer.add_scalar('Reward/epsiode reward', sum(rwds), i*episodes_per_round+j)
-            mlflow.log_metric("episode reward", sum(rwds), i*episodes_per_round+j)
+            mlflow.log_metric("episode score", sum(rwds), i*episodes_per_round+j)
             running_total = 0
             cum_rwds = [rwds.pop()]
             while rwds:

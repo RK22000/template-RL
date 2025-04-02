@@ -11,10 +11,7 @@ import numpy as np
 from itertools import chain
 import mlflow
 import io
-from typing import (
-    Callable,
-    Literal
-)
+from typing import Callable
 
 def copy_network(network):
     buffer = io.BytesIO()
@@ -117,31 +114,26 @@ class PPOAgent(Agent):
         epsilon: float=0.2,
         learning_rate: float=3e-4,
         prog_bar: bool = False,
-        log_mlflow: bool = False,
-        rollout_collection_method: Literal['sequential', 'multi-process', 'multi-threaded'] = 'multi-process'
+        log_mlflow: bool = False
     ):
         mlflow.log_params({
+            "Agent": 'PPOAgent-parallel-process',
             "rounds": rounds,
             "episodes_per_round": episodes_per_round,
             "gamma": gamma,
-            "epsilon": epsilon,
-            "rollout collection": rollout_collection_method
+            "epsilon": epsilon
         }) if log_mlflow else None
         optim = torch.optim.Adam(chain(self.value_net.parameters(), self.policy_net.parameters()), learning_rate)
         round_iterator = trange if prog_bar else range
-        match rollout_collection_method:
-            case "sequential": collect_episodes = self.play_n_episodes_sequential
-            case "multi-threaded": collect_episodes = self.play_n_episodes_parallel_threaded
-            case "multi-process": collect_episodes = self.play_n_episodes_parallel_processed
-            case _: raise ValueError(f"Unrecognized rollout_collection_method: {rollout_collection_method}")
         for i in round_iterator(rounds): # 100 updates
             data = []
             self.policy_net.eval()
             self.value_net.eval()
-            rollouts = collect_episodes(env_factory, episodes_per_round, show_prog=False)
+            rollouts = self.play_n_episodes_parallel_processed(env_factory, episodes_per_round, show_prog=False)
             for j, rollout in enumerate(rollouts):
                 obs, acts, rwds = rollout
-                mlflow.log_metric("episode score", sum(rwds), i*episodes_per_round+j) if log_mlflow else None
+                mlflow.log_metric("episode score", sum(rwds), i*episodes_per_round+j)
+                running_total = 0
                 cum_rwds = [rwds.pop()]
                 while rwds:
                     cum_rwds.append(gamma*cum_rwds[-1] + rwds.pop())  
@@ -185,28 +177,27 @@ class PPOAgent(Agent):
         
 
 
-if __name__=='__main__':
-    agent = PPOAgent(8, 4, [100,100])
-    print("Starting training")
+agent = PPOAgent(8, 4, [100,100])
+print("Starting training")
 
-    factory = lambda: gym.make("LunarLander-v3")
-    agent.train(
-        env_factory = factory,
-        rounds=50,
-        episodes_per_round=50,
-        gamma=0.99,
-        epsilon=0.2,
-        prog_bar=True
-    )
+factory = lambda: gym.make("LunarLander-v3")
+agent.train(
+    env_factory = factory,
+    rounds=50,
+    episodes_per_round=50,
+    gamma=0.99,
+    epsilon=0.2,
+    prog_bar=True
+)
 
-    agent.evaluate(
-        env_factory=factory,
-        prog_bar=True,
-    )
-
+agent.evaluate(
+    env_factory=factory,
+    prog_bar=True,
+)
 
 
-    env = gym.make("LunarLander-v3", render_mode="human")
-    obs, _ = env.reset()
-    _, _, rewards = agent.play_episode(env, obs)
-    env.close()
+
+env = gym.make("LunarLander-v3", render_mode="human")
+obs, _ = env.reset()
+_, _, rewards = agent.play_episode(env, obs)
+env.close()
