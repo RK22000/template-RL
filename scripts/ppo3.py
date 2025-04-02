@@ -12,6 +12,7 @@ from itertools import chain
 import mlflow
 import io
 from typing import Callable
+from templateRL.utils import deprecated
 
 def copy_network(network):
     buffer = io.BytesIO()
@@ -157,6 +158,7 @@ class PPOAgent(Agent):
             mlflow.log_metric('epoch loss', np.mean(losses), self.update_count) if log_mlflow else None
 
     # Todo make this general to all agents
+    @deprecated("Get rollouts directly and call utils.mlflow_log_rollouts instead")
     def evaluate(
         self,
         env_factory: Callable[[], gym.Env],

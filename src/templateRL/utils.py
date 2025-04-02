@@ -1,6 +1,9 @@
 import mlflow
 from collections import namedtuple
 import numpy as np
+from functools import wraps
+import warnings
+from typing import Callable
 
 Rollout = namedtuple('Rollout', ['observations', 'actions', 'rewards'])
 
@@ -19,3 +22,13 @@ def mlflow_log_rollouts(rollouts: list[Rollout], params: dict = {}):
             mlflow.log_params(params)
             for j, score in enumerate(np.cumsum(rewards)):
                 mlflow.log_metric('score', score, j)
+
+def deprecated(reason: str):
+    def decorator(func):
+        @wraps(func)
+        def deprecated_func(*args, **kwargs):
+            warnings.warn(f'function {func.__qualname__} is deprecated. {reason}', stacklevel=2)
+            return func(*args, **kwargs)
+        return deprecated_func
+    return decorator
+    

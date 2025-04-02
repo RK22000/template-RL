@@ -15,6 +15,7 @@ from typing import (
     Callable,
     Literal
 )
+from .utils import deprecated
 
 def copy_network(network):
     buffer = io.BytesIO()
@@ -97,11 +98,39 @@ class PPOAgent(Agent):
                  observation_size:int, 
                  action_size:int, 
                  hidden_layer_sizes:int):
+        super().__init__()
+        self._observation_size = observation_size
+        self._action_size = action_size
+        self._hidden_layer_sizes = hidden_layer_sizes
         self.value_net = make_value_net(observation_size, hidden_layer_sizes)
         self.policy_net = make_policy_net(observation_size, action_size, hidden_layer_sizes)
         self.value_net.eval()
         self.policy_net.eval()
         self.update_count = 0
+    
+    def _get_state(self):
+        return {
+            "value net state": self.value_net.state_dict(),
+            "policy net state": self.policy_net.state_dict(),
+            "observation size": self._observation_size,
+            "action size": self._action_size,
+            "hidden layer sizes": self._hidden_layer_sizes,
+            "update count": self.update_count
+        }
+    @classmethod
+    def _from_state(cls, state: dict):
+        agent = PPOAgent(state['observation size'], state['action size'], state['hidden layer sizes'])
+        agent.value_net.load_state_dict(state['value net state'])
+        agent.policy_net.load_state_dict(state['policy net state'])
+        agent.update_count = state['update count']
+        return agent
+    
+    def save(self, f):
+        torch.save(self._get_state(), f)
+    @classmethod
+    def load(cls, f) -> "PPOAgent":
+        state = torch.load(f, weights_only=True)
+        return cls._from_state(state)
     
     def act(self, observation):
         t = torch.from_numpy(observation)
@@ -134,7 +163,7 @@ class PPOAgent(Agent):
             case "multi-threaded": collect_episodes = self.play_n_episodes_parallel_threaded
             case "multi-process": collect_episodes = self.play_n_episodes_parallel_processed
             case _: raise ValueError(f"Unrecognized rollout_collection_method: {rollout_collection_method}")
-        for i in round_iterator(rounds): # 100 updates
+        for training_round in round_iterator(rounds): # 100 updates
             data = []
             self.policy_net.eval()
             self.value_net.eval()
@@ -162,9 +191,9 @@ class PPOAgent(Agent):
                 losses.append(loss.detach())
                 mlflow.log_metric("batch loss", losses[-1], self.update_count) if log_mlflow else None
                 self.update_count+=1
-            mlflow.log_metric('epoch loss', np.mean(losses), self.update_count) if log_mlflow else None
+            mlflow.log_metric('training round loss', np.mean(losses), training_round) if log_mlflow else None
 
-    # Todo make this general to all agents
+    @deprecated("Get rollouts directly and call utils.mlflow_log_rollouts instead")
     def evaluate(
         self,
         env_factory: Callable[[], gym.Env],

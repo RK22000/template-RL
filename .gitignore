@@ -3,3 +3,4 @@ runs
 mlruns
 **/__pycache__
 **/*.egg-info
+**/*.agent
