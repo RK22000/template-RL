@@ -10,20 +10,28 @@ from concurrent.futures import (
     as_completed,
     ProcessPoolExecutor,
 )
+from .utils import Rollout
+import io
 
 
-""" 
-Some asumptions
-Agents will always run for an episode while training
-The base agent will be generic and as much as possible not coupled with
-libraries like pytorch, tensorflow, sklearn or others
-"""
 class Agent(ABC):
+    """ 
+    Some asumptions
+    Agents will always run for an episode while training
+    The base agent will be generic and as much as possible not coupled with
+    libraries like pytorch, tensorflow, sklearn or others
+    """
     @abstractmethod
     def act(self, observation) -> Any:
         NotImplementedError()
     def __call__(self, *args, **kwds):
         return super().act(*args, **kwds)
+    
+    def save(self, f: str | io.BytesIO):
+        raise NotImplementedError()
+    @classmethod
+    def load(cls, f: str | io.BytesIO):
+        raise NotImplementedError()
         
     def __init__(self):
         self._decorators = []
@@ -34,7 +42,7 @@ class Agent(ABC):
         """
     
     # optional decorator to return cumilative rewards instead of regular rewards
-    def play_episode(self, env: gym.Env, initial_observation: Any|None = None):
+    def play_episode(self, env: gym.Env, initial_observation: Any|None = None) -> Rollout:
         """
         Play an episode in the given gymnasium environment
         If initial_observation is provided, the agent will continue in the environment 
@@ -60,7 +68,7 @@ class Agent(ABC):
             episode_over = terminated or truncated
         if initial_observation is None:
             env.close()
-        return (observations, actions, rewards)
+        return Rollout(observations, actions, rewards)
     
     def play_n_episodes_sequential(
         self, 
@@ -139,11 +147,3 @@ class Agent(ABC):
                 if show_prog: next(bar)
                 rollouts.append(rollout)
         return rollouts
-
-            
-
-
-# class MultithreadedAgent(Agent):
-#     """
-#     This type of agent is designed for running in multiple environments using multi thread
-#     """
