@@ -66,9 +66,9 @@ def ppo_agent_experiment(
 mlflow.set_experiment(EXPERIMENT_NAME)
 with mlflow.start_run():
     evaluation_runs = 10
-    with mlflow.start_run(nested=True):
+    with mlflow.start_run(run_name='random agent', nested=True):
         random_agent_experiment(evaluation_runs)
-    with mlflow.start_run(nested=True):
+    with mlflow.start_run(run_name='ppo agent', nested=True):
         ppo_agent_experiment(evaluation_runs)
 
     

@@ -6,3 +6,4 @@ lightning
 tqdm
 tensorboard
 mlflow
+-e .
