@@ -170,7 +170,7 @@ class PPOAgent(Agent):
             rollouts = collect_episodes(env_factory, episodes_per_round, show_prog=False)
             for j, rollout in enumerate(rollouts):
                 obs, acts, rwds = rollout
-                mlflow.log_metric("episode score", sum(rwds), i*episodes_per_round+j) if log_mlflow else None
+                mlflow.log_metric("episode score", sum(rwds), training_round*episodes_per_round+j) if log_mlflow else None
                 cum_rwds = [rwds.pop()]
                 while rwds:
                     cum_rwds.append(gamma*cum_rwds[-1] + rwds.pop())  
