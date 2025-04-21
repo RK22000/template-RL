@@ -126,7 +126,7 @@ class Agent(ABC):
                 rollouts.append(rollout)
         return rollouts
 
-    def play_n_episodes_in_process_pool(self, env_factory: Callable[[],gym.Env], n:int, n_workers:int=None, show_prog:bool=False):
+    def play_n_episodes_in_process_pool(self, env_factory: Callable[[],gym.Env], n:int, n_workers:int=None, show_prog:bool=False) -> list[Rollout]:
         """Play multiple episodes using a process pool
 
         Args:

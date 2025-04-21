@@ -17,6 +17,7 @@ from typing import (
     Literal
 )
 from .utils import deprecated
+import time
 
 def copy_network(network):
     buffer = io.BytesIO()
@@ -160,7 +161,8 @@ class PPOAgent(Agent):
         batch_size: int = 32,
         prog_bar: bool = False,
         log_mlflow: bool = False,
-        rollout_collection_method: Literal['sequential', 'multi-process', 'multi-threaded'] = 'multi-process'
+        rollout_collection_method: Literal['sequential', 'multi-process', 'multi-threaded'] = 'multi-process',
+        timeout_minutes: int | None = None
     ):
         mlflow.log_params({
             "rounds": rounds,
@@ -178,11 +180,19 @@ class PPOAgent(Agent):
             case "multi-threaded": collect_episodes = self.play_n_episodes_in_thread_pool
             case "multi-process": collect_episodes = self.play_n_episodes_in_process_pool
             case _: raise ValueError(f"Unrecognized rollout_collection_method: {rollout_collection_method}")
+        rollout_collection_time = 0
+        model_uptate_time = 0
+        start_time = time.monotonic()
         for training_round in round_iterator(rounds): # 100 updates
+            if timeout_minutes is not None and time.monotonic()-start_time > timeout_minutes*60:
+                break
             data = []
             self.policy_net.eval()
             self.value_net.eval()
+            s = time.monotonic()
             rollouts = collect_episodes(env_factory, episodes_per_round, show_prog=False)
+            t = time.monotonic()
+            rollout_collection_time += (t-s)
             for j, rollout in enumerate(rollouts):
                 obs, acts, rwds = rollout
                 mlflow.log_metric("episode score", sum(rwds), training_round*episodes_per_round+j) if log_mlflow else None
@@ -198,6 +208,7 @@ class PPOAgent(Agent):
             old_policy_net.eval()
             dl = DataLoader(RolloutData(data), batch_size, True)
             losses = []
+            s = time.monotonic()
             for batch in dl:
                 optim.zero_grad()
                 batch = [i.to(self.device) for i in batch]
@@ -207,8 +218,15 @@ class PPOAgent(Agent):
                 losses.append(loss.detach())
                 mlflow.log_metric("batch loss", losses[-1], self.update_count) if log_mlflow else None
                 self.update_count+=1
-            mlflow.log_metric('training round loss', np.mean(losses).astype(float), training_round) if log_mlflow else None
+            t = time.monotonic()
+            model_uptate_time += (t-s)
 
+            
+            mlflow.log_metric('training round loss', np.mean(losses).astype(float), training_round) if log_mlflow else None
+            mlflow.log_metric("rollout collection time", rollout_collection_time)
+            mlflow.log_metric("model update time", model_uptate_time)
+
+    
     @deprecated("Get rollouts directly and call utils.mlflow_log_rollouts instead")
     def evaluate(
         self,
