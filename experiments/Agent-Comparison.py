@@ -41,7 +41,7 @@ def random_agent_experiment(
     random_agent = RandomAgent(action_size)
     mlflow.log_param("Agent", "RandomAgent")
     print("Collecting rollouts to evaluate random agent")
-    rollouts = random_agent.play_n_episodes_parallel_processed(factory, evaluation_episodes, show_prog=True)
+    rollouts = random_agent.play_n_episodes_in_process_pool(factory, evaluation_episodes, show_prog=True)
     mlflow_log_rollouts(rollouts)
 
 # @context_as_decorator(mlflow.start_run(run_name='ppo agent', nested=True))
@@ -59,7 +59,7 @@ def ppo_agent_experiment(
         log_mlflow=True
     )
     print("Collecting rollouts to evaluate ppo agent")
-    rollouts = ppo_agent.play_n_episodes_parallel_processed(factory, evaluation_episodes, show_prog=True)
+    rollouts = ppo_agent.play_n_episodes_in_process_pool(factory, evaluation_episodes, show_prog=True)
     mlflow_log_rollouts(rollouts)
     
 

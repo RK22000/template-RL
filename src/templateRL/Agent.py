@@ -12,6 +12,10 @@ from concurrent.futures import (
 )
 from .utils import Rollout
 import io
+import multiprocessing as mp
+from multiprocessing import Process, Event, Manager
+from multiprocessing.managers import SyncManager
+from queue import Empty
 
 
 class Agent(ABC):
@@ -92,7 +96,7 @@ class Agent(ABC):
             rollouts.append(rollout)
         return rollouts
     
-    def play_n_episodes_parallel_threaded(self, env_factory: Callable[[],gym.Env], n:int, n_workers:int=None, show_prog:bool=False):
+    def play_n_episodes_in_thread_pool(self, env_factory: Callable[[],gym.Env], n:int, n_workers:int=None, show_prog:bool=False):
         """multi threaded roll out collection
 
         Args:
@@ -122,8 +126,8 @@ class Agent(ABC):
                 rollouts.append(rollout)
         return rollouts
 
-    def play_n_episodes_parallel_processed(self, env_factory: Callable[[],gym.Env], n:int, n_workers:int=None, show_prog:bool=False):
-        """Play multiple episodes in parallel processes
+    def play_n_episodes_in_process_pool(self, env_factory: Callable[[],gym.Env], n:int, n_workers:int=None, show_prog:bool=False):
+        """Play multiple episodes using a process pool
 
         Args:
             env_factory (Callable[[],gym.Env]): _description_
@@ -147,3 +151,37 @@ class Agent(ABC):
                 if show_prog: next(bar)
                 rollouts.append(rollout)
         return rollouts
+    
+    # def play_n_episodes_multiprocessed(self, env_factory: Callable[[],gym.Env], n_workers:int=None, show_prog:bool=False):
+    #     """
+    #     Play multiple episodes in a multiprocess while keeping the agent on main 
+    #     process
+    #     """
+    #     def worker(
+    #         rollout_queue: mp.Queue, 
+    #         stop_event,
+    #         observation_queue: mp.Queue,
+    #         action_queue: mp.Queue,
+    #         env: gym.Env):
+
+    #         initial_observation, _ = env.reset()
+    #         observation=initial_observation
+    #         episode_over = False
+    #         observations, actions, rewards = [], [], []
+    #         while not episode_over:
+    #             action = self.act(observation)
+    #             observations.append(observation)
+    #             actions.append(action)
+    #             observation, reward, terminated, truncated, info = env.step(action)
+    #             rewards.append(reward)
+    #             episode_over = terminated or truncated
+    #         if initial_observation is None:
+    #             env.close()
+    #         # return Rollout(observations, actions, rewards)
+
+    #         episode_over = True
+    #         observations, actions, rewards = [], [], []
+    #         while not stop_event.is_set():
+
+                
+            

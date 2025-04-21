@@ -1,4 +1,5 @@
 .venv
+.env
 runs
 mlruns
 **/__pycache__

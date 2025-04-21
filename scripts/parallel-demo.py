@@ -16,7 +16,7 @@ print("Using a Random Agent")
 print()
 print("Sequential", n, "runs")
 s = time.monotonic()
-agent.play_n_episodes_sequential(env, n, True)
+agent.play_n_episodes_sequential(factory, n, True)
 print(time.monotonic()-s, 'seconds')
 env.close()
 
@@ -29,7 +29,7 @@ env.close()
 print()
 print("process parallel", n, "runs")
 s = time.monotonic()
-agent.play_n_episodes_parallel_processed(factory, n, show_prog=True)
+agent.play_n_episodes_in_process_pool(factory, n, show_prog=True)
 print(time.monotonic()-s, 'seconds')
 
 

@@ -12,6 +12,7 @@ from itertools import chain
 import mlflow
 import io
 from typing import (
+    Any,
     Callable,
     Literal
 )
@@ -77,7 +78,7 @@ def batch_loss(batch, old_policy, epsilon, policy_net, value_net):
 
 def make_network(layer_sizes: list[int]):
     layers = iter((i,j) for i,j in zip(layer_sizes[:-1], layer_sizes[1:]))
-    modules = [nn.Linear(*next(layers))]
+    modules:list[Any] = [nn.Linear(*next(layers))]
     for l in layers:
         modules.append(nn.ReLU())
         modules.append(nn.Linear(*l))
@@ -97,7 +98,8 @@ class PPOAgent(Agent):
     def __init__(self, 
                  observation_size:int, 
                  action_size:int, 
-                 hidden_layer_sizes:int):
+                 hidden_layer_sizes:list[int],
+                ):
         super().__init__()
         self._observation_size = observation_size
         self._action_size = action_size
@@ -107,6 +109,16 @@ class PPOAgent(Agent):
         self.value_net.eval()
         self.policy_net.eval()
         self.update_count = 0
+        self.device = torch.device("cpu")
+    
+    @property
+    def device(self):
+        return self._device
+    @device.setter
+    def device(self, value):
+        self._device = value
+        self.policy_net.to(self._device)
+        self.value_net.to (self._device)
     
     def _get_state(self):
         return {
@@ -133,7 +145,7 @@ class PPOAgent(Agent):
         return cls._from_state(state)
     
     def act(self, observation):
-        t = torch.from_numpy(observation)
+        t = torch.from_numpy(observation).to(self.device)
         p = self.policy_net(t)
         action_probs = Categorical(p)
         return action_probs.sample().item()
@@ -145,6 +157,7 @@ class PPOAgent(Agent):
         gamma: float=0.99,
         epsilon: float=0.2,
         learning_rate: float=3e-4,
+        batch_size: int = 32,
         prog_bar: bool = False,
         log_mlflow: bool = False,
         rollout_collection_method: Literal['sequential', 'multi-process', 'multi-threaded'] = 'multi-process'
@@ -154,14 +167,16 @@ class PPOAgent(Agent):
             "episodes_per_round": episodes_per_round,
             "gamma": gamma,
             "epsilon": epsilon,
+            "batch_size": batch_size,
+            "learning_rate": learning_rate,
             "rollout collection": rollout_collection_method
         }) if log_mlflow else None
         optim = torch.optim.Adam(chain(self.value_net.parameters(), self.policy_net.parameters()), learning_rate)
         round_iterator = trange if prog_bar else range
         match rollout_collection_method:
             case "sequential": collect_episodes = self.play_n_episodes_sequential
-            case "multi-threaded": collect_episodes = self.play_n_episodes_parallel_threaded
-            case "multi-process": collect_episodes = self.play_n_episodes_parallel_processed
+            case "multi-threaded": collect_episodes = self.play_n_episodes_in_thread_pool
+            case "multi-process": collect_episodes = self.play_n_episodes_in_process_pool
             case _: raise ValueError(f"Unrecognized rollout_collection_method: {rollout_collection_method}")
         for training_round in round_iterator(rounds): # 100 updates
             data = []
@@ -181,17 +196,18 @@ class PPOAgent(Agent):
             self.value_net.train()
             old_policy_net = copy_network(self.policy_net)
             old_policy_net.eval()
-            dl = DataLoader(RolloutData(data), 32, True, num_workers=11)
+            dl = DataLoader(RolloutData(data), batch_size, True)
             losses = []
             for batch in dl:
                 optim.zero_grad()
+                batch = [i.to(self.device) for i in batch]
                 loss = batch_loss(batch, old_policy_net, epsilon, self.policy_net, self.value_net)
                 loss.backward()
                 optim.step()
                 losses.append(loss.detach())
                 mlflow.log_metric("batch loss", losses[-1], self.update_count) if log_mlflow else None
                 self.update_count+=1
-            mlflow.log_metric('training round loss', np.mean(losses), training_round) if log_mlflow else None
+            mlflow.log_metric('training round loss', np.mean(losses).astype(float), training_round) if log_mlflow else None
 
     @deprecated("Get rollouts directly and call utils.mlflow_log_rollouts instead")
     def evaluate(
@@ -201,7 +217,7 @@ class PPOAgent(Agent):
         prog_bar: bool = False,
         log_mlflow: bool = False
     ):
-        rollouts = self.play_n_episodes_parallel_processed(env_factory, episodes, show_prog=prog_bar)
+        rollouts = self.play_n_episodes_in_process_pool(env_factory, episodes, show_prog=prog_bar)
         for i, rollout in enumerate(rollouts):
             _, _, rewards = rollout
             with mlflow.start_run(run_name=f"Evaluation runs {i:0=5}", nested=True) as run:

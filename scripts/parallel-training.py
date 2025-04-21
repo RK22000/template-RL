@@ -128,7 +128,7 @@ try:
         data = []
         policy_net.eval()
         value_net.eval()
-        rollouts = agent.play_n_episodes_parallel_processed(env_factory, episodes_per_round)
+        rollouts = agent.play_n_episodes_in_process_pool(env_factory, episodes_per_round)
         for j, rollout in enumerate(rollouts):
             obs, acts, rwds = rollout
             writer.add_scalar('Reward/epsiode reward', sum(rwds), i*episodes_per_round+j)

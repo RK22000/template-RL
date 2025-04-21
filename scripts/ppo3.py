@@ -130,7 +130,7 @@ class PPOAgent(Agent):
             data = []
             self.policy_net.eval()
             self.value_net.eval()
-            rollouts = self.play_n_episodes_parallel_processed(env_factory, episodes_per_round, show_prog=False)
+            rollouts = self.play_n_episodes_in_process_pool(env_factory, episodes_per_round, show_prog=False)
             for j, rollout in enumerate(rollouts):
                 obs, acts, rwds = rollout
                 mlflow.log_metric("episode score", sum(rwds), i*episodes_per_round+j)
@@ -166,7 +166,7 @@ class PPOAgent(Agent):
         prog_bar: bool = False,
         log_mlflow: bool = False
     ):
-        rollouts = self.play_n_episodes_parallel_processed(env_factory, episodes, show_prog=prog_bar)
+        rollouts = self.play_n_episodes_in_process_pool(env_factory, episodes, show_prog=prog_bar)
         for i, rollout in enumerate(rollouts):
             _, _, rewards = rollout
             with mlflow.start_run(run_name=f"Evaluation runs {i:0=5}", nested=True) as run:
