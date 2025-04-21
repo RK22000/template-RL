@@ -165,7 +165,6 @@ class PPOAgent(Agent):
         timeout_minutes: int | None = None
     ):
         mlflow.log_params({
-            "rounds": rounds,
             "episodes_per_round": episodes_per_round,
             "gamma": gamma,
             "epsilon": epsilon,
@@ -225,6 +224,7 @@ class PPOAgent(Agent):
             mlflow.log_metric('training round loss', np.mean(losses).astype(float), training_round) if log_mlflow else None
             mlflow.log_metric("rollout collection time", rollout_collection_time)
             mlflow.log_metric("model update time", model_uptate_time)
+        mlflow.log_param("rounds", training_round)
 
     
     @deprecated("Get rollouts directly and call utils.mlflow_log_rollouts instead")

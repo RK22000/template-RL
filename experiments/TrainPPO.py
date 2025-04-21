@@ -18,7 +18,7 @@ args = parser.parse_args()
 
 EXPERIMENT_NAME = "Train PPO agent"
 agentfilename = 'ppo.agent'
-timeout_on_one_runs = 20
+timeout_on_one_runs = 15
 factory = lambda: gym.make("LunarLander-v3")
 new_agent = lambda: PPOAgent(8, 4, [100,100])
 
