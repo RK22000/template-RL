@@ -57,8 +57,11 @@ for combo in product(*values):
     param_set = dict(zip(keys, combo))
     print("Doing experiment with")
     print(json.dumps(param_set, indent=2))
-    with mlflow.start_run():
-        run_experiment(eval_episodes=100, **param_set)
+    try:
+        with mlflow.start_run():
+            run_experiment(eval_episodes=100, **param_set)
+    except Exception:
+        pass
 
 
 
