@@ -1,0 +1,12 @@
+[build-system]
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "templateRL"
+version = "0.0.1"
+dependencies = [
+  "tqdm>=4.67.1",
+  "mlflow>=2.21.3",
+  "torch>=2.6.0"
+]

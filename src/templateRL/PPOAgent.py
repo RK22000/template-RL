@@ -5,7 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Categorical
 from torch.utils.data import Dataset, DataLoader
-from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import trange
 import numpy as np
 from itertools import chain

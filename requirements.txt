@@ -1,9 +1,7 @@
 gymnasium[box2d]
 notebook
-numpy
-torch
-lightning
-tqdm
-tensorboard
-mlflow
+# numpy
+# torch
+# tqdm
+# mlflow
 -e .
