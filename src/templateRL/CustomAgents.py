@@ -33,7 +33,7 @@ class CompoundAgent(Agent):
         agent = self.rng.choice(self.agents, p=self.wiegihts)
         return agent.act(observation)
     def __str__(self):
-        return str({agent.__class__.__name__: weight for agent, weight in zip(self.agents, self.wiegihts)})
+        return "CompoundAgent("+str({agent.__class__.__name__: weight for agent, weight in zip(self.agents, self.wiegihts)})+")"
     def __repr__(self):
         return self.__str__()
 
