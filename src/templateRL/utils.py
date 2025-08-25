@@ -4,6 +4,10 @@ import numpy as np
 from functools import wraps
 import warnings
 from typing import Callable
+import gymnasium as gym
+from IPython.display import clear_output
+import time
+import matplotlib.pyplot as plt
 
 Rollout = namedtuple('Rollout', ['observations', 'actions', 'rewards'])
 
@@ -31,4 +35,21 @@ def deprecated(reason: str):
             return func(*args, **kwargs)
         return deprecated_func
     return decorator
-    
+
+def apply_jupyter_renderer(env: gym.Env, frame_rate: int = 30):
+    if hasattr(env, "_original_step_function"):
+        return env
+    env._original_step_function = env.step
+    @wraps(env.step)
+    def new_step_function(action):
+        t = time.time()
+        r = env._original_step_function(action)
+        clear_output(wait=True)
+        img = env.render()
+        plt.imshow(img)
+        plt.axis('off')
+        time_to_wait = max(1./frame_rate - (time.time() - t), 0.0001)
+        plt.pause(time_to_wait)
+        return r
+    env.step = new_step_function
+    return env
