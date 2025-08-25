@@ -36,6 +36,7 @@ def deprecated(reason: str):
         return deprecated_func
     return decorator
 
+# Trivial change just to see if install works proper
 def apply_jupyter_renderer(env: gym.Env, frame_rate: int = 30):
     if hasattr(env, "_original_step_function"):
         return env
