@@ -26,14 +26,14 @@ class CompoundAgent(Agent):
             missing_weight = (1 - sum(weights)) / missing
             weights = weights + [missing_weight] * missing
         norm = sum(weights)
-        self.wiegihts = [ round(w / norm,2) for w in weights ]
+        self.weights = [ round(w / norm,2) for w in weights ]
         self.agents = agents
         self.rng = np.random.default_rng()
     def act(self, observation: any) -> int:
-        agent = self.rng.choice(self.agents, p=self.wiegihts)
+        agent = self.rng.choice(self.agents, p=self.weights)
         return agent.act(observation)
     def __str__(self):
-        return "CompoundAgent("+str({agent.__class__.__name__: weight for agent, weight in zip(self.agents, self.wiegihts)})+")"
+        return "CompoundAgent("+str({agent.__class__.__name__: weight for agent, weight in zip(self.agents, self.weights)})+")"
     def __repr__(self):
         return self.__str__()
 
