@@ -131,7 +131,7 @@ class PPOAgent(Agent):
         }
     @classmethod
     def _from_state(cls, state: dict):
-        agent = PPOAgent(state['observation size'], state['action size'], state['hidden layer sizes'])
+        agent = cls(state['observation size'], state['action size'], state['hidden layer sizes'])
         agent.value_net.load_state_dict(state['value net state'])
         agent.policy_net.load_state_dict(state['policy net state'])
         agent.update_count = state['update count']
@@ -140,7 +140,7 @@ class PPOAgent(Agent):
     def save(self, f):
         torch.save(self._get_state(), f)
     @classmethod
-    def load(cls, f) -> "PPOAgent":
+    def load(cls, f):
         state = torch.load(f, weights_only=True)
         return cls._from_state(state)
     
